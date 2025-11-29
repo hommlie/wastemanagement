@@ -1,3 +1,15 @@
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
+
+/* Prevent horizontal scroll */
+html, body, #root {
+  overflow-x: hidden;
+}
+
+/* Prevent images & videos from overflowing */
+img, picture, video, svg {
+  max-width: 100%;
+  height: auto;
+  display: block;
+}
