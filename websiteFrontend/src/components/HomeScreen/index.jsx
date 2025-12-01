@@ -1,5 +1,6 @@
 import React from "react";
 import QuoteForm from "../QuoteForm";
+import { FiFileText } from "react-icons/fi"; // icon for certifications
 
 const HomeScreen = () => {
   return (
@@ -37,6 +38,22 @@ const HomeScreen = () => {
             <span style={{ color: "#22c55e" }}>The Environment</span>
           </h1>
 
+          {/* ⭐ NEW BUTTONS BELOW TEXT */}
+          <div className="flex flex-col md:flex-row items-center justify-center gap-4 mt-6">
+            <button
+              className="px-8 py-3 rounded-xl text-white font-semibold text-lg shadow-lg hover:opacity-90 transition"
+              style={{ backgroundColor: "#22c55e" }}  // green button
+            >
+              Get Instant Quote →
+            </button>
+
+            <button
+              className="px-8 py-3 rounded-xl text-white font-semibold text-lg flex items-center gap-2 border border-white/30 hover:bg-white/10 transition"
+              style={{ color: "#ffffff" }}
+            >
+              View Certifications <FiFileText size={20} />
+            </button>
+          </div>
         </div>
       </section>
 

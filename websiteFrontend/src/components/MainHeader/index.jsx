@@ -4,34 +4,162 @@ const MainHeader = () => {
   const [isScrolled, setIsScrolled] = useState(false);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const [isMobile, setIsMobile] = useState(window.innerWidth <= 1024);
+  const [activeMenu, setActiveMenu] = useState(null);
 
+  // ⭐ MEGA MENU DATA
+  const menus = {
+    Residential: {
+      image: "/hero-bg.png",
+      desc: "EcoSpare provides cleaner, smarter residential waste pickup.",
+      cols: [
+        {
+          head: "Residential Services",
+          items: [
+            "Trash & Recycling Pickup",
+            "Bulk Trash Pickup",
+            "Dumpster Bag Pickup",
+            "Roll-Off Rentals",
+            "Drop-Off Locations",
+          ],
+        },
+        {
+          head: "Communities",
+          items: [
+            "Service Areas",
+            "Municipalities",
+            "HOA Services",
+            "Property Management",
+          ],
+        },
+      ],
+    },
+
+    Commercial: {
+      image: "/hero-bg.png",
+      desc: "Reliable commercial waste & recycling services built for business.",
+      cols: [
+        {
+          head: "Commercial Services",
+          items: [
+            "Commercial Pickup",
+            "Roll-Off Dumpsters",
+            "Compactors",
+            "Shredding Services",
+            "Drop-Off Locations",
+          ],
+        },
+        {
+          head: "Industries",
+          items: ["Corporate", "IT Parks", "Malls", "Restaurants", "Factories"],
+        },
+        {
+          head: "Enterprise",
+          items: ["Analytics Platform", "National Accounts"],
+        },
+      ],
+    },
+
+    "Environmental Solutions": {
+      image: "/hero-bg.png",
+      desc: "EcoSpare supports sustainability and environmental compliance.",
+      cols: [
+        {
+          head: "Environmental Services",
+          items: [
+            "Disposal Services",
+            "Hazardous Waste",
+            "Transportation",
+            "Onsite Services",
+          ],
+        },
+        {
+          head: "Specialized",
+          items: ["Organics", "Wet Waste", "Recycling Programs", "Consulting"],
+        },
+      ],
+    },
+
+    Healthcare: {
+      image: "/hero-bg.png",
+      desc: "Fully compliant biomedical waste collection and reporting.",
+      cols: [
+        {
+          head: "Biomedical Waste",
+          items: [
+            "BMW Pickup",
+            "Color Segregation",
+            "Audit Trail",
+            "Safety Compliance",
+          ],
+        },
+        {
+          head: "Industries",
+          items: ["Hospitals", "Clinics", "Labs", "Diagnostics", "Pharma"],
+        },
+      ],
+    },
+
+    Sustainability: {
+      image: "/hero-bg.png",
+      desc: "EcoSpare’s sustainability programs help reduce ecological impact.",
+      cols: [
+        {
+          head: "Sustainability",
+          items: ["Reports", "Impact", "Recycling 101", "Awareness Programs"],
+        },
+        {
+          head: "Recycling",
+          items: [
+            "Residential Recycling",
+            "Commercial Recycling",
+            "Recycle Right",
+            "How Recycling Works",
+          ],
+        },
+      ],
+    },
+  };
+
+  // ⭐ SCROLL
   useEffect(() => {
     const handleScroll = () => setIsScrolled(window.scrollY > 100);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
 
+  // ⭐ MOBILE DETECT
   useEffect(() => {
     const handleResize = () => setIsMobile(window.innerWidth <= 1024);
     window.addEventListener("resize", handleResize);
     return () => window.removeEventListener("resize", handleResize);
   }, []);
 
+  // ⭐ underline hover style
+  const underlineStyle = {
+    position: "relative",
+    paddingBottom: "4px",
+  };
+
+  const underlineHover = {
+    position: "relative",
+    paddingBottom: "4px",
+  };
+
   return (
-    <header 
+    <header
       style={{
         position: "fixed",
         top: 0,
-        left: 0,
         width: "100%",
+        left: 0,
         zIndex: 50,
         backgroundColor: isScrolled ? "white" : "transparent",
         boxShadow: isScrolled ? "0 2px 12px rgba(0,0,0,0.08)" : "none",
         transition: "all 0.4s ease-in-out",
-        borderBottom: isScrolled ? "1px solid #f0f0f0" : "none"
       }}
+      onMouseLeave={() => setActiveMenu(null)}
     >
-
+      {/* ------------------------ TOP SMALL BAR ------------------------ */}
       <div
         style={{
           maxWidth: "1300px",
@@ -44,160 +172,167 @@ const MainHeader = () => {
           fontWeight: 700,
           color: isScrolled ? "#064e3b" : "white",
           alignItems: "center",
-          background: "transparent",
           transition: "color 0.3s",
-          marginLeft: "20px"
+          marginLeft: "20px",
         }}
       >
         <div style={{ display: "flex", gap: 20, alignItems: "flex-end", marginLeft: "500px", marginTop: "14px" }}>
-          <a href="#support" style={{ color: isScrolled ? "#064e3b" : "white", textDecoration: "none" }}>Support</a>
-          <a href="#schedule" style={{ color: isScrolled ? "#064e3b" : "white", textDecoration: "none" }}>Schedule & ETA</a>
-          <a href="#payment" style={{ color: isScrolled ? "#064e3b" : "white", textDecoration: "none" }}>Make a Payment</a>
+          <a style={{ color: isScrolled ? "#064e3b" : "white" }}>Support</a>
+          <a style={{ color: isScrolled ? "#064e3b" : "white" }}>Schedule & ETA</a>
+          <a style={{ color: isScrolled ? "#064e3b" : "white" }}>Make a Payment</a>
         </div>
+
         {!isMobile && (
           <div style={{ display: "flex", gap: 15, alignItems: "center", marginTop: "14px" }}>
-            <a href="#dropoff" style={{ color: isScrolled ? "#064e3b" : "white", textDecoration: "none" }}>Drop-Off Locations</a>
-            <a href="#login" style={{ color: isScrolled ? "#064e3b" : "white", textDecoration: "none", padding: "6px 10px", borderRadius: 4, background: isScrolled ? "rgba(4, 120, 87, 0.06)" : "transparent" }}>Log In ▾</a>
+            <a style={{ color: isScrolled ? "#064e3b" : "white" }}>Drop-Off Locations</a>
+            <a style={{
+              color: isScrolled ? "#064e3b" : "white",
+              padding: "6px 10px",
+              borderRadius: 4,
+              background: isScrolled ? "rgba(4, 120, 87, 0.06)" : "transparent",
+            }}>
+              Log In ▾
+            </a>
           </div>
         )}
-
       </div>
 
-      <div 
+      {/* ------------------------ MAIN HEADER ------------------------ */}
+      <div
         style={{
           maxWidth: "1300px",
           margin: "0 auto",
-          padding: isScrolled ? (isMobile ? "10px 20px" : "0px 40px") : (isMobile ? "12px 20px" : "16px 40px"),
+          padding: isScrolled ? (isMobile ? "10px 20px" : "0px 40px")
+            : (isMobile ? "12px 20px" : "16px 40px"),
           display: "flex",
           justifyContent: "space-between",
           alignItems: "center",
-          transition: "padding 0.4s ease-in-out"
+          transition: "padding 0.4s",
         }}
       >
-
-        <div style={{ flexShrink: 0 }}>
-          <img 
-            src="/ecospare-logo.png" 
-            alt="Ecosphere Logo"
-            style={{ 
-              height: isScrolled ? "80px" : "88px", 
-              width: "auto",
-              transition: "height 0.4s ease-in-out",
-              filter: !isScrolled ? "drop-shadow(0 2px 4px rgba(0,0,0,0.3))" : "none",
-              marginTop: "-40px"
-            }}
-          />
-        </div>
+        <img
+          src="/ecospare-logo.png"
+          style={{
+            height: isScrolled ? "80px" : "88px",
+            marginTop: "-40px",
+            transition: "0.4s",
+          }}
+        />
 
         {!isMobile && (
-          <nav 
+          <nav
             style={{
               display: "flex",
               gap: "40px",
               fontSize: "16px",
               fontWeight: 800,
-              alignItems: "center",
               flex: 1,
               justifyContent: "center",
-              transition: "color 0.3s"
             }}
           >
-            <a href="#residential" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", transition: "color 0.3s" }}>
-              Bulk Trash
-            </a>
-            <a href="#commercial" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", transition: "color 0.3s" }}>
-              Commercial
-            </a>
-            <a href="#environmental" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", transition: "color 0.3s" }}>
-              Environmental Solutions
-            </a>
-            <a href="#healthcare" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", transition: "color 0.3s" }}>
-              Healthcare
-            </a>
-            <a href="#sustainability" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", transition: "color 0.3s" }}>
-              Sustainability
-            </a>
-            <a href="#about" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", transition: "color 0.3s" }}>
-              About Us
+            {Object.keys(menus).map((menu) => (
+              <span
+                key={menu}
+                style={{
+                  color: isScrolled ? "#1f2937" : "white",
+                  cursor: "pointer",
+                  ...underlineStyle,
+                }}
+                onMouseEnter={() => setActiveMenu(menu)}
+                onMouseLeave={() => setActiveMenu(null)}
+              >
+                {menu}
+                {/* underline */}
+                <span
+                  style={{
+                    content: '""',
+                    position: "absolute",
+                    left: 0,
+                    bottom: 0,
+                    height: "2px",
+                    width: activeMenu === menu ? "100%" : "0%",
+                    background: isScrolled ? "#064e3b" : "white",
+                    transition: "0.3s",
+                  }}
+                ></span>
+              </span>
+            ))}
+
+            {/* ⭐ PARTNER WITH US BUTTON */}
+            <a
+              style={{
+                padding: "10px 18px",
+                background: "#16a34a",
+                color: "white",
+                borderRadius: "6px",
+                fontWeight: 700,
+                cursor: "pointer",
+                marginLeft: "10px",
+                whiteSpace: "nowrap",
+              }}
+            >
+              Partner With Us
             </a>
           </nav>
         )}
-
-        <div style={{ display: "flex", alignItems: "center", gap: "18px" }}>
-
-          <button style={{ background: "none", border: "none", color: isScrolled ? "#064e3b" : "white", cursor: "pointer", padding: 0, transition: "color 0.3s" }} aria-label="Search">
-            <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
-              <circle cx="11" cy="11" r="7" />
-              <line x1="21" y1="21" x2="16.65" y2="16.65" />
-            </svg>
-          </button>
-
-          <button 
-            onClick={() => setIsMobileMenuOpen(!isMobileMenuOpen)}
-            style={{ 
-              display: isMobile ? "block" : "none",
-              background: "none", 
-              border: "none", 
-              color: isScrolled ? "#1f2937" : "white", 
-              cursor: "pointer",
-              padding: "8px",
-              transition: "color 0.3s"
-            }}
-            aria-label="Menu"
-          >
-            <svg
-              width="24"
-              height="24"
-              fill="none"
-              stroke="currentColor"
-              strokeWidth="2"
-              viewBox="0 0 24 24"
-            >
-              {isMobileMenuOpen ? (
-                <path d="M6 18L18 6M6 6l12 12" />
-              ) : (
-                <>
-                  <path d="M4 6h16" />
-                  <path d="M4 12h16" />
-                  <path d="M4 18h16" />
-                </>
-              )}
-            </svg>
-          </button>
-        </div>
       </div>
 
-      {isMobileMenuOpen && (
-        <nav 
+      {/* ------------------------ MEGA MENU ------------------------ */}
+      {!isMobile && activeMenu && (
+        <div
           style={{
+            position: "absolute",
+            top: "100%",
+            left: 0,
+            width: "100%",
+            background: "white",
+            padding: "40px 80px",
+            boxShadow: "0 10px 30px rgba(0,0,0,0.15)",
             display: "flex",
-            flexDirection: "column",
-            backgroundColor: isScrolled ? "white" : "rgba(0,0,0,0.95)",
-            borderTop: isScrolled ? "1px solid #f0f0f0" : "1px solid rgba(229, 231, 235, 0.2)",
-            padding: "16px 40px",
-            gap: "12px"
+            gap: "60px",
+            animation: "fadeDown 0.3s ease-out",
           }}
         >
-          <a href="#residential" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", padding: "10px 0", fontSize: "14px", fontWeight: "600" }}>
-            Residential
-          </a>
-          <a href="#commercial" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", padding: "10px 0", fontSize: "14px", fontWeight: "600" }}>
-            Commercial
-          </a>
-          <a href="#environmental" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", padding: "10px 0", fontSize: "14px", fontWeight: "600" }}>
-            Environmental Solutions
-          </a>
-          <a href="#healthcare" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", padding: "10px 0", fontSize: "14px", fontWeight: "600" }}>
-            Healthcare
-          </a>
-          <a href="#sustainability" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", padding: "10px 0", fontSize: "14px", fontWeight: "600" }}>
-            Sustainability
-          </a>
-          <a href="#about" style={{ color: isScrolled ? "#1f2937" : "white", textDecoration: "none", padding: "10px 0", fontSize: "14px", fontWeight: "600" }}>
-            About Us
-          </a>
-        </nav>
+          {/* LEFT COLUMNS */}
+          <div style={{ display: "flex", gap: "60px" }}>
+            {menus[activeMenu].cols.map((col, i) => (
+              <div key={i}>
+                <h3 style={{ fontWeight: 700, marginBottom: 10 }}>{col.head}</h3>
+                {col.items.map((txt, idx) => (
+                  <p key={idx} style={{ margin: "6px 0", cursor: "pointer", color: "#444" }}>
+                    {txt}
+                  </p>
+                ))}
+              </div>
+            ))}
+          </div>
+
+          {/* RIGHT IMAGE CARD */}
+          <div style={{ width: "350px" }}>
+            <img
+              src={menus[activeMenu].image}
+              style={{
+                width: "100%",
+                height: "180px",
+                borderRadius: "12px",
+                objectFit: "cover",
+              }}
+            />
+            <p style={{ marginTop: 10, color: "#444" }}>
+              {menus[activeMenu].desc}
+            </p>
+          </div>
+        </div>
       )}
+
+      <style>
+        {`
+          @keyframes fadeDown {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+          }
+        `}
+      </style>
     </header>
   );
 };

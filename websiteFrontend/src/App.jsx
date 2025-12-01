@@ -5,6 +5,8 @@ import ServicesGrid from "./components/ServicesGrid";
 import WasteStreams from "./components/WasteStreams";
 import Footer from "./components/Footer";
 import Advertisement from "./components/Advertisement"
+import CaseStudies from "./components/CaseStudies";
+import Certifications from "./components/Certifications";
 
 function App() {
   return (
@@ -14,6 +16,8 @@ function App() {
         <HomeScreen />
         <Advertisement />
         <ServicesGrid />
+        <CaseStudies />
+        <Certifications />
         <WasteStreams />
         <Footer />
       </main>
