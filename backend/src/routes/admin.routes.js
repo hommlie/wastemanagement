@@ -16,6 +16,9 @@ const ZoneController = require("../controllers/admin/zonecontroller");
 const OrderController = require("../controllers/admin/ordercontroller");
 const CategoryController = require("../controllers/admin/categorycontroller");
 const VariationController = require("../controllers/admin/variationcontroller");
+const CorporationController = require("../controllers/admin/corporationcontroller");
+const DivisionController = require("../controllers/admin/divisioncontroller");
+const WardController = require("../controllers/admin/wardcontroller");
 
 router.post("/login", authController.login);
 router.post("/send-otp", authController.sendOtp);
@@ -88,7 +91,7 @@ router.get("/zone", authorize("zone", "view"), ZoneController.getAllZones);
 router.get("/zone/state", authorize("zone", "view"), ZoneController.getState);
 router.get("/zone/city/:state_id", authorize("zone", "view"), ZoneController.getCity);
 router.get("/zone/:id", authorize("zone", "view"), ZoneController.getZoneById);
-router.get("/zone/:city_id/pincodes", authorize("zone", "create"), CityController.getPincodesByCity);
+router.get("/zone/corporations/:city_id", authorize("zone", "create"), ZoneController.getCorporationsByCity);
 router.post("/zone", authorize("zone", "create"), ZoneController.createZone);
 router.put("/zone/:id", authorize("zone", "edit"), ZoneController.updateZone);
 router.post("/zone/:id/status", authorize("zone", "edit"), ZoneController.updateZoneStatus);
@@ -114,5 +117,47 @@ router.get("/variation", authorize("variation", "view"), VariationController.get
 router.post("/variation", authorize("variation", "create"), VariationController.create);
 router.put("/variation/:id", authorize("variation", "edit"), VariationController.update);
 router.delete("/variation/:id", authorize("variation", "delete"), VariationController.delete);
+
+// --- auto-routes for module: corporation ---
+
+router.get("/corporation/state", authorize("corporation", "view"), CorporationController.getState);
+router.get("/corporation/city/:state_id", authorize("corporation", "view"), CorporationController.getCity);
+router.get("/corporation", authorize("corporation", "view"), CorporationController.getAll);
+router.get("/corporation/:id", authorize("corporation", "view"), CorporationController.getById);
+router.post("/corporation", authorize("corporation", "create"), CorporationController.create);
+router.put("/corporation/:id", authorize("corporation", "edit"), CorporationController.update);
+router.delete("/corporation/:id", authorize("corporation", "delete"), CorporationController.delete);
+router.patch("/corporation/:id/status", authorize("corporation", "status"), CorporationController.updateStatus);
+
+
+// Cascade helpers (secure)
+router.get("/division/states", authorize("division", "view"), DivisionController.getStatesForDivision);
+router.get("/division/cities/:state_id", authorize("division", "view"), DivisionController.getCitiesForDivision);
+router.get("/division/corporations/:city_id", authorize("division", "view"), DivisionController.getCorporationsForDivision);
+router.get("/division/zones/:corporation_id", authorize("division", "view"), DivisionController.getZonesForDivision);
+router.get("/division", authorize("division", "view"), DivisionController.getAllDivisions);
+router.get("/division/:id", authorize("division", "view"), DivisionController.getDivisionById);
+router.get("/division/zone/:zone_id", authorize("division", "view"), DivisionController.getDivisionsByZone);
+router.post("/division", authorize("division", "create"), DivisionController.createDivision);
+router.put("/division/:id", authorize("division", "edit"), DivisionController.updateDivision);
+router.post("/division/:id/status", authorize("division", "status"), DivisionController.updateDivisionStatus);
+router.delete("/division/:id", authorize("division", "delete"), DivisionController.deleteDivision);
+
+
+router.get("/ward" , WardController.getAllWards);
+router.get("/ward/:id", authorize("ward", "view"), WardController.getWardById);
+router.get("/ward/states", authorize("ward", "view"), WardController.getStates);
+router.get("/ward/cities/:state_id", authorize("ward", "view"), WardController.getCities);
+router.get("/ward/corporations/:city_id", authorize("ward", "view"), WardController.getCorporations);
+router.get("/ward/zones/:corporation_id", authorize("ward", "view"), WardController.getZones);
+router.get("/ward/divisions/:zone_id", authorize("ward", "view"), WardController.getDivisions);
+router.post("/ward", authorize("ward", "create"), WardController.createWard);
+router.put("/ward/:id", authorize("ward", "edit"), WardController.updateWard);
+router.post("/ward/:id/status", authorize("ward", "status"), WardController.updateWardStatus);
+router.delete("/ward/:id", authorize("ward", "delete"), WardController.deleteWard);
+router.get("/ward/:id/pincodes", authorize("ward", "view"), WardController.getWardPincodes);
+router.post("/ward/:id/pincode", authorize("ward", "edit"), WardController.addWardPincode);
+router.delete("/ward/pincode/:pincode_id", authorize("ward", "delete"), WardController.deleteWardPincode);
+
 
 module.exports = router;
