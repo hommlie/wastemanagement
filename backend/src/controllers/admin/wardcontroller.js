@@ -1,6 +1,6 @@
-// controllers/ward.controller.js
+// backend/src/controllers/admin/wardcontroller.js
 const db = require("../../models");
-const { Op } = db.Sequelize || require("sequelize");
+const { Op, Sequelize, UniqueConstraintError } = db.Sequelize || require("sequelize");
 
 const Ward = db.Ward;
 const Division = db.Division;
@@ -10,11 +10,14 @@ const City = db.City;
 const State = db.State;
 const WardPincode = db.WardPincode;
 
+console.log("State model (wardcontroller):", !!State);
+
 exports.getStates = async (req, res) => {
   try {
     const data = await State.findAll({ order: [["name", "ASC"]] });
     return res.json({ status: 1, data });
   } catch (e) {
+    console.error("getStates error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -27,6 +30,7 @@ exports.getCities = async (req, res) => {
     });
     return res.json({ status: 1, data });
   } catch (e) {
+    console.error("getCities error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -39,6 +43,7 @@ exports.getCorporations = async (req, res) => {
     });
     return res.json({ status: 1, data });
   } catch (e) {
+    console.error("getCorporations error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -51,6 +56,7 @@ exports.getZones = async (req, res) => {
     });
     return res.json({ status: 1, data });
   } catch (e) {
+    console.error("getZones error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -63,6 +69,7 @@ exports.getDivisions = async (req, res) => {
     });
     return res.json({ status: 1, data });
   } catch (e) {
+    console.error("getDivisions error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -100,6 +107,7 @@ exports.getAllWards = async (req, res) => {
         },
       ],
     });
+
     return res.json({
       status: 1,
       data: rows,
@@ -113,10 +121,16 @@ exports.getAllWards = async (req, res) => {
       },
     });
   } catch (e) {
+    console.error("getAllWards error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
 
+/**
+ * getWardById
+ * - returns the ward record plus helper lists to populate dropdowns on the frontend,
+ *   so dropdowns load immediately when the edit modal opens (fixes "fields not loaded first time" issue).
+ */
 exports.getWardById = async (req, res) => {
   try {
     const ward = await Ward.findByPk(req.params.id, {
@@ -149,10 +163,28 @@ exports.getWardById = async (req, res) => {
 
     if (!ward) return res.json({ status: 0, message: "Ward not found" });
 
+    // derive hierarchical ids
     const zone = ward.division?.zone;
     const corp = zone?.corporation;
     const city = corp?.city;
     const state = city?.state;
+
+    // Build helpers: lists that the frontend can set immediately
+    // - states: all states (for state dropdown)
+    // - cities: cities of the state
+    // - corporations: corporations of the city
+    // - zones: zones of the corporation
+    // - divisions: divisions of the zone
+    const helpers = {};
+    try {
+      helpers.states = await State.findAll({ order: [["name", "ASC"]] });
+      helpers.cities = state ? await City.findAll({ where: { state_id: state.id }, order: [["name", "ASC"]] }) : [];
+      helpers.corporations = city ? await Corporation.findAll({ where: { city_id: city.id }, order: [["name", "ASC"]] }) : [];
+      helpers.zones = corp ? await Zone.findAll({ where: { corporation_id: corp.id }, order: [["name", "ASC"]] }) : [];
+      helpers.divisions = zone ? await Division.findAll({ where: { zone_id: zone.id }, order: [["name", "ASC"]] }) : [];
+    } catch (e) {
+      console.warn("helpers fetch partial failure:", e);
+    }
 
     return res.json({
       status: 1,
@@ -164,8 +196,10 @@ exports.getWardById = async (req, res) => {
         zone_id: zone?.id || "",
         division_id: ward.division?.id || "",
       },
+      helpers,
     });
   } catch (e) {
+    console.error("getWardById error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -188,6 +222,7 @@ exports.createWard = async (req, res) => {
 
     return res.json({ status: 1, message: "Ward created", data: ward });
   } catch (e) {
+    console.error("createWard error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -210,6 +245,7 @@ exports.updateWard = async (req, res) => {
 
     return res.json({ status: 1, message: "Ward updated", data: ward });
   } catch (e) {
+    console.error("updateWard error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -224,6 +260,7 @@ exports.updateWardStatus = async (req, res) => {
 
     return res.json({ status: 1, message: "Status updated" });
   } catch (e) {
+    console.error("updateWardStatus error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -237,6 +274,7 @@ exports.deleteWard = async (req, res) => {
 
     return res.json({ status: 1, message: "Ward deleted" });
   } catch (e) {
+    console.error("deleteWard error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -250,22 +288,38 @@ exports.getWardPincodes = async (req, res) => {
 
     return res.json({ status: 1, data: list });
   } catch (e) {
+    console.error("getWardPincodes error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };
 
+/**
+ * addWardPincode
+ * - prevents duplicate pincode for same ward (unique constraint at DB + controller catch)
+ */
 exports.addWardPincode = async (req, res) => {
   try {
-    if (!req.body.pincode)
-      return res.json({ status: 0, message: "Pincode required" });
+    const pincode = (req.body.pincode || "").trim();
+    if (!pincode) return res.json({ status: 0, message: "Pincode required" });
 
+    // Optional additional server-side validation (digits only)
+    if (!/^\d{3,10}$/.test(pincode)) {
+      return res.json({ status: 0, message: "Invalid pincode format" });
+    }
+
+    // create - unique constraint on (ward_id, pincode) will prevent duplicates
     const data = await WardPincode.create({
       ward_id: req.params.id,
-      pincode: req.body.pincode,
+      pincode,
     });
 
     return res.json({ status: 1, message: "Pincode added", data });
   } catch (e) {
+    console.error("addWardPincode error:", e);
+    // Unique constraint handling
+    if (e instanceof UniqueConstraintError || (e.name && e.name === "SequelizeUniqueConstraintError")) {
+      return res.json({ status: 0, message: "Pincode already exists for this ward" });
+    }
     return res.json({ status: 0, message: e.message });
   }
 };
@@ -279,6 +333,7 @@ exports.deleteWardPincode = async (req, res) => {
 
     return res.json({ status: 1, message: "Pincode deleted" });
   } catch (e) {
+    console.error("deleteWardPincode error:", e);
     return res.json({ status: 0, message: e.message });
   }
 };

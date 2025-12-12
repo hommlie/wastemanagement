@@ -1,361 +1,243 @@
-// controllers/admin/categorycontroller.js
-const path = require("path");
-const multer = require("multer");
-
-const db = require("../../models");
+// backend/src/controllers/admin/categorycontroller.js
+const fs = require('fs');
+const path = require('path');
+const db = require('../../models');
+const { Op } = db.Sequelize || require('sequelize');
 const Category = db.Category;
-const Variation = db.Variation;
-const { Op } = db.Sequelize;
-
-/* ------------ MULTER CONFIG SIRF CATEGORY IMAGES KE LIYE ------------ */
-
+const uploadDir = path.join(__dirname, '..', '..', 'public', 'category');
+if (!fs.existsSync(uploadDir)) fs.mkdirSync(uploadDir, { recursive: true });
+const multer = require('multer');
 const storage = multer.diskStorage({
-  destination: (req, file, cb) => {
-    // backend/public/category
-    cb(null, path.join(__dirname,"..","..","..","public", "category"));
-  },
+  destination: (req, file, cb) => cb(null, uploadDir),
   filename: (req, file, cb) => {
     const ext = path.extname(file.originalname);
-    const base = path.basename(file.originalname, ext).replace(/\s+/g, "_");
-    cb(null, Date.now() + "_" + base + ext);
-  },
+    const base = path.basename(file.originalname, ext).replace(/\s+/g, '-').toLowerCase();
+    const name = `${Date.now()}-${Math.round(Math.random() * 1e6)}-${base}${ext}`;
+    cb(null, name);
+  }
 });
+const upload = multer({ storage, limits: { fileSize: 6 * 1024 * 1024 } }); 
 
-const uploadCategoryImage = multer({ storage });
+exports.uploadSingle = upload.single('image');
 
-exports.uploadCategoryImage = uploadCategoryImage.single("image");
-
-/* ------------ HELPERS ------------ */
-
-function makeImageUrl(req, fileName) {
-  if (!fileName) return null;
-  const base = `${req.protocol}://${req.get("host")}`;
-  return `${base}/category/${fileName}`; // public/category se serve hoga
+function slugify(text) {
+  return String(text || '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^\w\-]+/g, '-')
+    .replace(/\-\-+/g, '-')
+    .replace(/^-+|-+$/g, '');
 }
 
-/* ------------ LIST / GET ------------ */
+function fileUrl(req, filename) {
+  if (!filename) return null;
 
+  if (/^https?:\/\//i.test(filename)) return filename;
+  return `${req.protocol}://${req.get('host')}/public/category/${filename}`;
+}
+
+/* ===== list ===== */
 exports.getAll = async (req, res) => {
   try {
-    const page = parseInt(req.query.page || "1", 10);
-    const limit = parseInt(req.query.limit || "10", 10);
-    const search = (req.query.search || "").trim();
+    const page = parseInt(req.query.page || 1, 10);
+    const limit = parseInt(req.query.limit || 25, 10);
+    const offset = (page - 1) * limit;
 
     const where = {};
-    if (search) {
-      where[Op.or] = [{ name: { [Op.like]: `%${search}%` } }];
-    }
-
-    const offset = (page - 1) * limit;
+    if (req.query.search) where.name = { [Op.like]: `%${req.query.search}%` };
+    if (typeof req.query.status !== 'undefined') where.status = req.query.status;
 
     const { rows, count } = await Category.findAndCountAll({
       where,
-      include: [
-        {
-          model: Variation,
-          as: "variations",
-          separate: true,
-          order: [["sort_order", "ASC"], ["id", "ASC"]],
-        },
-      ],
-      order: [["id", "DESC"]],
       limit,
       offset,
+      order: [['id', 'DESC']],
     });
 
-    const data = rows.map((row) => {
-      const plain = row.toJSON();
-      if (plain.image) plain.image = makeImageUrl(req, plain.image);
-      return plain;
-    });
-
-    return res.json({
-      status: 1,
-      message: "Categories fetched",
-      data,
-      meta: {
-        total: count,
-        page,
-        limit,
-        totalPages: Math.ceil(count / limit) || 1,
-        from: count ? offset + 1 : 0,
-        to: offset + rows.length,
-      },
-    });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ status: 0, message: "Server error" });
-  }
-};
-
-exports.getOne = async (req, res) => {
-  try {
-    const id = req.params.id;
-    const category = await Category.findByPk(id, {
-      include: [
-        {
-          model: Variation,
-          as: "variations",
-          order: [["sort_order", "ASC"], ["id", "ASC"]],
-        },
-      ],
-    });
-
-    if (!category) {
-      return res.status(404).json({ status: 0, message: "Category not found" });
-    }
-
-    const plain = category.toJSON();
-    if (plain.image) plain.image = makeImageUrl(req, plain.image);
-
-    return res.json({ status: 1, message: "Category fetched", data: plain });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ status: 0, message: "Server error" });
-  }
-};
-
-/* ------------ CREATE (CATEGORY + VARIATIONS + IMAGE) ------------ */
-
-exports.createWithVariations = async (req, res) => {
-  const t = await db.sequelize.transaction();
-  try {
-    const userId = req.user && req.user.id ? req.user.id : null;
-    const { name, status } = req.body;
-
-    let variations = [];
-    if (req.body.variations) {
-      try {
-        variations = JSON.parse(req.body.variations);
-      } catch (e) {
-        return res
-          .status(400)
-          .json({ status: 0, message: "Invalid variations JSON" });
-      }
-    }
-
-    if (!name || !name.trim()) {
-      return res
-        .status(400)
-        .json({ status: 0, message: "Category name is required" });
-    }
-
-    const category = await Category.create(
-      {
-        user_id: userId,
-        name: name.trim(),
-        image: req.file ? req.file.filename : null, // sirf filename
-        status: typeof status !== "undefined" ? Number(status) : 1,
-      },
-      { transaction: t }
-    );
-
-    if (Array.isArray(variations) && variations.length > 0) {
-      const rows = variations
-        .filter((v) => v && v.name && v.name.trim())
-        .map((v, idx) => ({
-          category_id: category.id,
-          name: v.name.trim(),
-          code: v.code || null,
-          number_of_services: v.number_of_services || null,
-          schedule_after_days: v.schedule_after_days || null,
-          min_weight_kg: v.min_weight_kg || null,
-          max_weight_kg: v.max_weight_kg || null,
-          base_price: v.base_price || null,
-          per_kg_price: v.per_kg_price || null,
-          status: typeof v.status !== "undefined" ? Number(v.status) : 1,
-          sort_order:
-            typeof v.sort_order !== "undefined" ? v.sort_order : idx,
-        }));
-
-      if (rows.length) {
-        await Variation.bulkCreate(rows, { transaction: t });
-      }
-    }
-
-    await t.commit();
-
-    const plain = category.toJSON();
-    if (plain.image) plain.image = makeImageUrl(req, plain.image);
-
-    return res.json({
-      status: 1,
-      message: "Category and variations created",
-      data: plain,
-    });
-  } catch (err) {
-    console.error(err);
-    await t.rollback();
-    return res
-      .status(500)
-      .json({ status: 0, message: "Server error", error: err.message });
-  }
-};
-
-/* ------------ UPDATE (CATEGORY + VARIATIONS + OPTIONAL IMAGE) ------------ */
-
-exports.updateWithVariations = async (req, res) => {
-  const t = await db.sequelize.transaction();
-  try {
-    const id = req.params.id;
-    const { name, status } = req.body;
-
-    let variations = [];
-    if (req.body.variations) {
-      try {
-        variations = JSON.parse(req.body.variations);
-      } catch (e) {
-        return res
-          .status(400)
-          .json({ status: 0, message: "Invalid variations JSON" });
-      }
-    }
-
-    const category = await Category.findByPk(id);
-    if (!category) {
-      return res
-        .status(404)
-        .json({ status: 0, message: "Category not found" });
-    }
-
-    if (!name || !name.trim()) {
-      return res
-        .status(400)
-        .json({ status: 0, message: "Category name is required" });
-    }
-
-    if (req.file) {
-      category.image = req.file.filename;
-    }
-
-    category.name = name.trim();
-    if (typeof status !== "undefined") {
-      category.status = Number(status);
-    }
-
-    await category.save({ transaction: t });
-
-    const existing = await Variation.findAll({
-      where: { category_id: category.id },
-      transaction: t,
-    });
-    const existingIds = existing.map((v) => v.id);
-    const incoming = Array.isArray(variations) ? variations : [];
-    const incomingIds = incoming.filter((v) => v.id).map((v) => Number(v.id));
-
-    const toDelete = existingIds.filter((vid) => !incomingIds.includes(vid));
-    if (toDelete.length) {
-      await Variation.destroy({ where: { id: toDelete }, transaction: t });
-    }
-
-    for (const [idx, v] of incoming.entries()) {
-      const payload = {
-        category_id: category.id,
-        name: (v.name || "").trim(),
-        code: v.code || null,
-        number_of_services: v.number_of_services || null,
-        schedule_after_days: v.schedule_after_days || null,
-        min_weight_kg: v.min_weight_kg || null,
-        max_weight_kg: v.max_weight_kg || null,
-        base_price: v.base_price || null,
-        per_kg_price: v.per_kg_price || null,
-        status: typeof v.status !== "undefined" ? Number(v.status) : 1,
-        sort_order:
-          typeof v.sort_order !== "undefined" ? v.sort_order : idx,
-      };
-
-      if (!payload.name) continue;
-
-      if (v.id) {
-        await Variation.update(payload, {
-          where: { id: v.id, category_id: category.id },
-          transaction: t,
-        });
+    // convert images (filenames) to full urls for output
+    const data = rows.map(r => {
+      const obj = r.toJSON();
+      if (Array.isArray(obj.images)) {
+        obj.images = obj.images.map(img => fileUrl(req, img));
+      } else if (typeof obj.images === 'string' && obj.images) {
+        // maybe stored as comma separated string
+        obj.images = (obj.images || '').split(',').map(s => s.trim()).filter(Boolean).map(img => fileUrl(req, img));
       } else {
-        await Variation.create(payload, { transaction: t });
+        obj.images = [];
       }
-    }
-
-    await t.commit();
-
-    const plain = category.toJSON();
-    if (plain.image) plain.image = makeImageUrl(req, plain.image);
+      return obj;
+    });
 
     return res.json({
       status: 1,
-      message: "Category and variations updated",
-      data: plain,
+      data,
+      meta: { total: count, page, limit, totalPages: Math.ceil(count / limit), from: offset + 1, to: offset + data.length },
     });
-  } catch (err) {
-    console.error(err);
-    await t.rollback();
-    return res
-      .status(500)
-      .json({ status: 0, message: "Server error", error: err.message });
+  } catch (e) {
+    console.error('Category.getAll error:', e);
+    return res.json({ status: 0, message: e.message });
   }
 };
 
-/* ------------ DELETE ------------ */
-
-exports.deleteOne = async (req, res) => {
+/* ===== get by id ===== */
+exports.getById = async (req, res) => {
   try {
-    const id = req.params.id;
-    const category = await Category.findByPk(id);
-    if (!category) {
-      return res
-        .status(404)
-        .json({ status: 0, message: "Category not found" });
-    }
-
-    await Variation.destroy({ where: { category_id: id } });
-    await category.destroy();
-
-    return res.json({ status: 1, message: "Category deleted" });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ status: 0, message: "Server error" });
+    const cat = await Category.findByPk(req.params.id);
+    if (!cat) return res.json({ status: 0, message: 'Category not found' });
+    const obj = cat.toJSON();
+    if (Array.isArray(obj.images)) obj.images = obj.images.map(img => fileUrl(req, img));
+    else obj.images = [];
+    return res.json({ status: 1, data: obj });
+  } catch (e) {
+    console.error('Category.getById error:', e);
+    return res.json({ status: 0, message: e.message });
   }
 };
 
-/* ------------ OPTIONAL SIMPLE create/update (agar kahin aur use ho) ------------ */
-
+/* ===== create (accepts single image upload via field 'image') =====
+   Use route: router.post('/', uploadSingle, controller.create)
+*/
 exports.create = async (req, res) => {
   try {
-    const { name, image, status } = req.body;
-    if (!name || !name.trim()) {
-      return res
-        .status(400)
-        .json({ status: 0, message: "Category name is required" });
+    const { name, slug: inputSlug, images: bodyImages, status } = req.body;
+    if (!name) return res.json({ status: 0, message: 'Name is required' });
+
+    const slug = slugify(inputSlug || name);
+
+    // check uniqueness
+    const exists = await Category.findOne({ where: { slug } });
+    if (exists) return res.json({ status: 0, message: 'Slug already exists. Choose another name/slug.' });
+
+    // handle uploaded file (if any)
+    let imagesArr = [];
+    if (req.file && req.file.filename) {
+      imagesArr.push(req.file.filename);
+    } else {
+      // if client sent images in body (array or comma string), accept it but normalize to filenames or URLs
+      if (bodyImages) {
+        if (Array.isArray(bodyImages)) imagesArr = bodyImages.map(i => (typeof i === 'string' ? path.basename(i) : i)).filter(Boolean);
+        else if (typeof bodyImages === 'string') imagesArr = bodyImages.split(',').map(s => path.basename(s.trim())).filter(Boolean);
+      }
     }
-    const cat = await Category.create({
-      name: name.trim(),
-      image: image || null,
-      status: typeof status !== "undefined" ? Number(status) : 1,
-    });
-    return res.json({ status: 1, message: "Category created", data: cat });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ status: 0, message: "Server error" });
+
+    const payload = {
+      name,
+      slug,
+      images: imagesArr.length ? imagesArr : [], // store array (may be empty)
+      status: typeof status !== 'undefined' ? status : 1,
+      created_by: req.user?.id || null,
+      updated_by: req.user?.id || null,
+    };
+
+    const cat = await Category.create(payload);
+    const out = cat.toJSON();
+    out.images = (out.images || []).map(img => fileUrl(req, img));
+    return res.json({ status: 1, message: 'Category created', data: out });
+  } catch (e) {
+    console.error('Category.create error:', e);
+    return res.json({ status: 0, message: e.message });
   }
 };
 
+/* ===== update (accepts optional single image upload 'image') =====
+   Use route: router.put('/:id', uploadSingle, controller.update)
+*/
 exports.update = async (req, res) => {
   try {
     const id = req.params.id;
-    const { name, image, status } = req.body;
     const cat = await Category.findByPk(id);
-    if (!cat) {
-      return res
-        .status(404)
-        .json({ status: 0, message: "Category not found" });
+    if (!cat) return res.json({ status: 0, message: 'Category not found' });
+
+    const { name, slug: inputSlug, images: bodyImages, status } = req.body;
+    const newSlug = slugify(inputSlug || name || cat.slug);
+
+    // ensure slug unique (skip current record)
+    const other = await Category.findOne({ where: { slug: newSlug, id: { [Op.ne]: id } } });
+    if (other) return res.json({ status: 0, message: 'Slug already used by another category' });
+
+    // if a file uploaded, add/replace first image (behavior: replace first image)
+    let imagesArr = Array.isArray(cat.images) ? [...cat.images] : (cat.images ? (String(cat.images).split(',').map(s => s.trim()).filter(Boolean)) : []);
+
+    if (req.file && req.file.filename) {
+      // if you want to replace all images with the uploaded one, uncomment next line:
+      // imagesArr = [req.file.filename];
+
+      // Otherwise, add the new image to the beginning if not duplicate:
+      const fname = req.file.filename;
+      if (!imagesArr.includes(fname)) {
+        imagesArr.unshift(fname);
+      }
+    } else if (typeof bodyImages !== 'undefined') {
+      // client explicitly sent images array or comma string -> use it
+      if (Array.isArray(bodyImages)) imagesArr = bodyImages.map(i => (typeof i === 'string' ? path.basename(i) : i)).filter(Boolean);
+      else imagesArr = bodyImages ? String(bodyImages).split(',').map(s => path.basename(s.trim())).filter(Boolean) : [];
     }
-    if (name && name.trim()) cat.name = name.trim();
-    if (typeof image !== "undefined") cat.image = image || null;
-    if (typeof status !== "undefined") cat.status = Number(status);
+
+    cat.name = name ?? cat.name;
+    cat.slug = newSlug ?? cat.slug;
+    cat.images = imagesArr;
+    cat.status = typeof status !== 'undefined' ? status : cat.status;
+    cat.updated_by = req.user?.id || cat.updated_by;
+    cat.updated_at = new Date();
+
     await cat.save();
-    return res.json({ status: 1, message: "Category updated", data: cat });
-  } catch (err) {
-    console.error(err);
-    return res.status(500).json({ status: 0, message: "Server error" });
+
+    const out = cat.toJSON();
+    out.images = (out.images || []).map(img => fileUrl(req, img));
+    return res.json({ status: 1, message: 'Category updated', data: out });
+  } catch (e) {
+    console.error('Category.update error:', e);
+    return res.json({ status: 0, message: e.message });
   }
 };
+
+
+exports.updateStatus = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const cat = await Category.findByPk(id);
+    if (!cat) return res.json({ status: 0, message: "Category not found" });
+    let newStatus;
+    if (typeof req.body.status !== "undefined") {
+      const s = Number(req.body.status);
+      if (s === 0 || s === 1) {
+        newStatus = s;
+      } else {
+        return res.json({ status: 0, message: "Invalid status value. Use 0 or 1." });
+      }
+    } else {
+      newStatus = cat.status === 1 ? 0 : 1;
+    }
+    cat.status = newStatus;
+    cat.updated_by = req.user?.id || cat.updated_by || null;
+    cat.updated_at = new Date();
+    await cat.save();
+    return res.json({
+      status: 1,
+      message: "Status updated",
+      data: { id: cat.id, status: cat.status },
+    });
+  } catch (e) {
+    console.error("Category.updateStatus error:", e);
+    return res.json({ status: 0, message: e.message });
+  }
+};
+
+
+/* ===== delete ===== */
+exports.delete = async (req, res) => {
+  try {
+    const id = req.params.id;
+    const cat = await Category.findByPk(id);
+    if (!cat) return res.json({ status: 0, message: 'Category not found' });
+    await cat.destroy();
+    return res.json({ status: 1, message: 'Category deleted' });
+  } catch (e) {
+    console.error('Category.delete error:', e);
+    return res.json({ status: 0, message: e.message });
+  }
+};
+
+
+
+

@@ -1,37 +1,27 @@
-// models/Category.js
+// models/category.js
 module.exports = (sequelize, DataTypes) => {
   const Category = sequelize.define(
     "Category",
     {
-      id: { type: DataTypes.INTEGER.UNSIGNED, primaryKey: true, autoIncrement: true },
-      user_id: { type: DataTypes.INTEGER.UNSIGNED, allowNull: false },
+      id: { type: DataTypes.INTEGER, primaryKey: true, autoIncrement: true },
+
+      created_by: { type: DataTypes.INTEGER, allowNull: true },
+      updated_by: { type: DataTypes.INTEGER, allowNull: true },
+
       name: { type: DataTypes.STRING(191), allowNull: false },
-      image: { type: DataTypes.STRING(255), allowNull: true },
+      slug: { type: DataTypes.STRING(191), allowNull: false, unique: true },
+      images: { type: DataTypes.JSON, allowNull: true },
       status: { type: DataTypes.TINYINT, allowNull: false, defaultValue: 1 },
-      deleted_at: { type: DataTypes.DATE, allowNull: true },
+
+      created_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
+      updated_at: { type: DataTypes.DATE, defaultValue: DataTypes.NOW },
     },
     {
       tableName: "category",
+      timestamps: false,
       underscored: true,
-      timestamps: true,
-      paranoid: true, 
-      createdAt: "created_at",
-      updatedAt: "updated_at",
-      deletedAt: "deleted_at",
     }
   );
-
-  Category.associate = (models) => {
-    Category.hasMany(models.Variation, {
-      foreignKey: "category_id",
-      as: "variation",
-    });
-
-    Category.belongsTo(models.User, {
-      foreignKey: "user_id",
-      as: "user",
-    });
-  };
 
   return Category;
 };

@@ -19,6 +19,7 @@ const VariationController = require("../controllers/admin/variationcontroller");
 const CorporationController = require("../controllers/admin/corporationcontroller");
 const DivisionController = require("../controllers/admin/divisioncontroller");
 const WardController = require("../controllers/admin/wardcontroller");
+const SubcategoryController = require("../controllers/admin/subcategorycontroller");
 
 router.post("/login", authController.login);
 router.post("/send-otp", authController.sendOtp);
@@ -104,13 +105,14 @@ router.delete("/order/:id", authorize("order", "delete"), OrderController.delete
 
 
 // ===== CATEGORY ROUTES =====
-router.get("/category", authorize("category", "view"), CategoryController.getAll);
-router.get("/category/:id", authorize("category", "view"), CategoryController.getOne);
-router.post("/category_with_variations",authorize("category", "create"), CategoryController.uploadCategoryImage, CategoryController.createWithVariations);
-router.put("/category_with_variations/:id",authorize("category", "edit"), CategoryController.uploadCategoryImage, CategoryController.updateWithVariations);
-router.delete("/category/:id",authorize("category", "delete"), CategoryController.deleteOne);
-router.post("/category", authorize("category", "create"), CategoryController.create);
-router.put("/category/:id", authorize("category", "edit"), CategoryController.update);
+router.get('/category', authorize('category', 'view'), CategoryController.getAll);
+router.get('/category/:id', authorize('category', 'view'), CategoryController.getById);
+router.post('/category',authorize('category', 'create'),CategoryController.uploadSingle, CategoryController.create);
+router.put('/category/:id',authorize('category', 'edit'),CategoryController.uploadSingle,CategoryController.update);
+router.delete('/category/:id', authorize('category', 'delete'), CategoryController.delete);
+router.patch('/category/:id/status', authorize('category', 'status'), CategoryController.updateStatus);
+
+
 
 
 router.get("/variation", authorize("variation", "view"), VariationController.getAll);
@@ -144,20 +146,30 @@ router.post("/division/:id/status", authorize("division", "status"), DivisionCon
 router.delete("/division/:id", authorize("division", "delete"), DivisionController.deleteDivision);
 
 
-router.get("/ward" , WardController.getAllWards);
-router.get("/ward/:id", authorize("ward", "view"), WardController.getWardById);
+
+// ===== WARD ROUTES =====
+router.get("/ward", authorize("ward", "view"), WardController.getAllWards);
 router.get("/ward/states", authorize("ward", "view"), WardController.getStates);
 router.get("/ward/cities/:state_id", authorize("ward", "view"), WardController.getCities);
 router.get("/ward/corporations/:city_id", authorize("ward", "view"), WardController.getCorporations);
 router.get("/ward/zones/:corporation_id", authorize("ward", "view"), WardController.getZones);
 router.get("/ward/divisions/:zone_id", authorize("ward", "view"), WardController.getDivisions);
+router.get("/ward/:id/pincodes", authorize("ward", "view"), WardController.getWardPincodes);
+router.get("/ward/:id", authorize("ward", "view"), WardController.getWardById);
 router.post("/ward", authorize("ward", "create"), WardController.createWard);
 router.put("/ward/:id", authorize("ward", "edit"), WardController.updateWard);
 router.post("/ward/:id/status", authorize("ward", "status"), WardController.updateWardStatus);
 router.delete("/ward/:id", authorize("ward", "delete"), WardController.deleteWard);
-router.get("/ward/:id/pincodes", authorize("ward", "view"), WardController.getWardPincodes);
 router.post("/ward/:id/pincode", authorize("ward", "edit"), WardController.addWardPincode);
 router.delete("/ward/pincode/:pincode_id", authorize("ward", "delete"), WardController.deleteWardPincode);
 
+
+
+
+// --- auto-routes for module: subcategory ---
+router.get("/subcategory", SubcategoryController.getAll);
+router.post("/subcategory", SubcategoryController.create);
+router.put("/subcategory/:id", SubcategoryController.update);
+router.delete("/subcategory/:id", SubcategoryController.delete);
 
 module.exports = router;

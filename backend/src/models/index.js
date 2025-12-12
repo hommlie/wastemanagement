@@ -2,25 +2,35 @@
 const fs = require("fs");
 const path = require("path");
 const Sequelize = require("sequelize");
-const sequelize = require("../config/db");
+const sequelize = require("../config/db"); // ensure this exports a Sequelize instance
 
 const basename = path.basename(__filename);
 const modelsDir = __dirname;
 
 const db = {
   sequelize,
-  Sequelize,
+  Sequelize
 };
 
+/**
+ * Load model file helper
+ * Accepts both: module.exports = (sequelize, DataTypes) => Model
+ * and module.exports = Model (less common)
+ */
 function loadModelFromFile(filePath) {
   const mod = require(filePath);
   if (typeof mod === "function") {
+    // assume (sequelize, DataTypes) => Model
     return mod(sequelize, Sequelize.DataTypes || Sequelize);
   }
+  // if module exported an object (already a model)
   return mod;
 }
 
-// LOAD ALL MODEL FILES (we do NOT exclude model files)
+/* --------------------------
+   Load all model files
+   (we intentionally do not exclude model files)
+---------------------------*/
 fs.readdirSync(modelsDir)
   .filter((file) => {
     return file.indexOf(".") !== 0 && file !== basename && file.slice(-3) === ".js";
@@ -37,7 +47,8 @@ fs.readdirSync(modelsDir)
   });
 
 /* -----------------------------------------
-   ALIAS FIXES (support multiple export styles)
+   Backwards-compatible alias fixes
+   (support a mix of lower-case/upper-case/file-export styles)
 ------------------------------------------*/
 if (!db.Role && db.role) db.Role = db.role;
 if (!db.Module && db.module) db.Module = db.module;
@@ -50,25 +61,20 @@ if (!db.User && db.user) db.User = db.user;
 if (!db.State && db.state) db.State = db.state;
 if (!db.City && db.city) db.City = db.city;
 if (!db.Zone && db.zone) db.Zone = db.zone;
+if (!db.Corporation && db.corporation) db.Corporation = db.corporation;
+if (!db.Division && db.division) db.Division = db.division;
+if (!db.Ward && db.ward) db.Ward = db.ward;
+if (!db.WardPincode && db.wardpincode) db.WardPincode = db.wardpincode;
 
 if (!db.Category && db.category) db.Category = db.category;
-if (!db.category && db.Category) db.category = db.Category;
-
+if (!db.SubCategory && db.sub_category && !db.SubCategory) db.SubCategory = db.sub_category;
 if (!db.Variation && db.variation) db.Variation = db.variation;
-if (!db.variation && db.Variation) db.variation = db.Variation;
 
-if (!db.Corporation && db.corporation) db.Corporation = db.corporation;
-if (!db.corporation && db.Corporation) db.corporation = db.Corporation;
-
-
-if (!db.Division && db.division) db.Division = db.division;
-if (!db.division && db.Division) db.division = db.Division;
-
-// Note: Pincode / ZonePincode models may exist in folder and will be loaded into db,
-// but we are intentionally NOT creating automatic associations for them here.
-
+/* --------------------------
+   Register associations
+---------------------------*/
 try {
-  // ---------- Modules & Permissions ----------
+  // ---------- Modules & Permissions (old module logic kept) ----------
   if (db.Module && db.Permission) {
     db.Module.hasMany(db.Permission, { foreignKey: "module_id", as: "permissions", onDelete: "CASCADE" });
     db.Permission.belongsTo(db.Module, { foreignKey: "module_id", as: "module" });
@@ -110,23 +116,18 @@ try {
     db.City.belongsTo(db.State, { foreignKey: "state_id", as: "state" });
   }
 
-  // ---------- City & Zone ----------
-  // IMPORTANT: Your DB does NOT have Zone.city_id column (earlier error).
-  // Therefore we do NOT define Zone.belongsTo(City) or City.hasMany(Zone).
-  // If you add zone.city_id column later, reintroduce the association.
-
   // ---------- Zone & Corporation ----------
   if (db.Zone && db.Corporation) {
+    // Zone belongsTo Corporation via corporation_id
     db.Zone.belongsTo(db.Corporation, { foreignKey: "corporation_id", as: "corporation", onDelete: "SET NULL" });
     db.Corporation.hasMany(db.Zone, { foreignKey: "corporation_id", as: "zones", onDelete: "CASCADE" });
   }
 
-  // ---------- State / City / Corporation ----------
+  // ---------- Corporation <-> State & City ----------
   if (db.State && db.Corporation) {
     db.State.hasMany(db.Corporation, { foreignKey: "state_id", as: "corporations", onDelete: "CASCADE" });
     db.Corporation.belongsTo(db.State, { foreignKey: "state_id", as: "state" });
   }
-
   if (db.City && db.Corporation) {
     db.City.hasMany(db.Corporation, { foreignKey: "city_id", as: "corporations", onDelete: "CASCADE" });
     db.Corporation.belongsTo(db.City, { foreignKey: "city_id", as: "city" });
@@ -145,47 +146,45 @@ try {
     });
   }
 
-
-  // Ward <-> Division
+  // ---------- Division & Ward ----------
   if (db.Division && db.Ward) {
-    db.Division.hasMany(db.Ward, {
-      foreignKey: "division_id",
-      as: "wards",
-      onDelete: "CASCADE"
-    });
-    db.Ward.belongsTo(db.Division, {
-      foreignKey: "division_id",
-      as: "division"
-    });
+    db.Division.hasMany(db.Ward, { foreignKey: "division_id", as: "wards", onDelete: "CASCADE" });
+    db.Ward.belongsTo(db.Division, { foreignKey: "division_id", as: "division" });
   }
 
-  // WardPincode associations
+  // ---------- WardPincode associations ----------
   if (db.Ward && db.WardPincode) {
-    db.Ward.hasMany(db.WardPincode, {
-      foreignKey: "ward_id",
-      as: "ward_pincodes",
-      onDelete: "CASCADE"
-    });
-    db.WardPincode.belongsTo(db.Ward, {
-      foreignKey: "ward_id",
-      as: "ward"
-    });
+    db.Ward.hasMany(db.WardPincode, { foreignKey: "ward_id", as: "ward_pincodes", onDelete: "CASCADE" });
+    db.WardPincode.belongsTo(db.Ward, { foreignKey: "ward_id", as: "ward" });
   }
 
-
-  // ---------- Category & Variation & User ----------
+  // ---------- Category & User (created_by / updated_by) ----------
+  
   if (db.Category && db.User) {
-    db.User.hasMany(db.Category, { foreignKey: "user_id", as: "categories", onDelete: "CASCADE" });
-    db.Category.belongsTo(db.User, { foreignKey: "user_id", as: "user" });
+    // as 'creator' and 'updater' so queries can include('creator') etc.
+    db.Category.belongsTo(db.User, { foreignKey: "created_by", as: "creator", constraints: false });
+    db.Category.belongsTo(db.User, { foreignKey: "updated_by", as: "updater", constraints: false });
+
+    // optional inverse relations
+    db.User.hasMany(db.Category, { foreignKey: "created_by", as: "created_categories", constraints: false });
+    db.User.hasMany(db.Category, { foreignKey: "updated_by", as: "updated_categories", constraints: false });
   }
 
-  if (db.Category && db.Variation) {
-    db.Category.hasMany(db.Variation, { foreignKey: "category_id", as: "variations", onDelete: "CASCADE" });
-    db.Variation.belongsTo(db.Category, { foreignKey: "category_id", as: "category" });
+  // ---------- Category <-> SubCategory ----------
+  if (db.Category && db.SubCategory) {
+    // NOTE: sub_category table's foreign key is 'cat_id' according to your earlier SQL
+    db.Category.hasMany(db.SubCategory, { foreignKey: "cat_id", as: "sub_categories", onDelete: "CASCADE" });
+    db.SubCategory.belongsTo(db.Category, { foreignKey: "cat_id", as: "category" });
   }
 
+  // ---------- SubCategory <-> Variation ----------
+  if (db.SubCategory && db.Variation) {
+    // Variation's foreign key is sub_cat_id per your SQL
+    db.SubCategory.hasMany(db.Variation, { foreignKey: "sub_cat_id", as: "variations", onDelete: "CASCADE" });
+    db.Variation.belongsTo(db.SubCategory, { foreignKey: "sub_cat_id", as: "sub_category" });
+  }
 
-  // NOTE: No Pincode / ZonePincode associations intentionally
+  console.log("Models loaded and associations registered successfully.");
 } catch (err) {
   console.error("Error registering associations:", err);
 }
